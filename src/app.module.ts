@@ -7,9 +7,7 @@ import { ReportsModule } from './reports/reports.module';
 import { APP_PIPE } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 const cookieSession = require('cookie-session');
-import * as dbConfig from '../ormconfig.js'
-
-
+import * as dbConfig from '../ormconfig.js';
 
 @Module({
   imports: [
@@ -18,32 +16,39 @@ import * as dbConfig from '../ormconfig.js'
       envFilePath: `./.env.${process.env.NODE_ENV}`,
     }),
     TypeOrmModule.forRootAsync({
-      useFactory: () => {
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: async (configService: ConfigService) => {
         return {
-          ...dbConfig
-        }         
+          ...dbConfig,
+          url: configService.get<string>('DATABASE_URL'),
+        };
       },
     }),
-  UsersModule, ReportsModule],
+    UsersModule,
+    ReportsModule,
+  ],
   controllers: [AppController],
   providers: [
     AppService,
     {
       provide: APP_PIPE,
       useValue: new ValidationPipe({
-        // chi lay nhung field co trong Dto; nhap them se ko chap nhan!!!
+        // chi lay nhung field co trong Dto; nhap them se ko chap nhan!!! ngan chan inject Admin role!!!
         whitelist: true,
-      }) 
+      }),
     },
   ],
 })
 export class AppModule {
-  constructor(
-    private configService: ConfigService
-  ) {}
+  constructor(private configService: ConfigService) {}
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(cookieSession({
-      keys: [this.configService.get('COOKIE_KEY')],
-      })).forRoutes('*');
+    consumer
+      .apply(
+        cookieSession({
+          keys: [this.configService.get('COOKIE_KEY')],
+        }),
+      )
+      .forRoutes('*');
   }
 }
